@@ -27,12 +27,18 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define BUFF_LEN 0x600
+typedef struct {
+    ETH_BufferTypeDef *AppBuff;
+    uint8_t buffer[BUFF_LEN]__ALIGNED(32);
+} ETH_AppBuff;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define DEGUG_MESSAGE_ON
+
 
 #ifdef __GNUC__
 #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
@@ -487,6 +493,53 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		__NOP();
 	}
 }
+
+/*************ETHERNET_CALBACK_OVERLOAD_START**********************/
+
+/**
+  * @brief  Rx Allocate callback.
+  * @param  buff: pointer to allocated buffer
+  * @retval None
+  */
+void HAL_ETH_RxAllocateCallback(uint8_t ** buff) {
+  ETH_BufferTypeDef * p = malloc(BUFF_LEN * sizeof(uint8_t));
+  if (p)
+  {
+    * buff = (uint8_t * ) p + offsetof(ETH_AppBuff, buffer);
+    p -> next = NULL;
+    p -> len = BUFF_LEN;
+  } else {
+    * buff = NULL;
+  }
+}
+
+/**
+  * @brief  Rx Link callback.
+  * @param  pStart: pointer to packet start
+  * @param  pStart: pointer to packet end
+  * @param  buff: pointer to received data
+  * @param  Length: received data length
+  * @retval None
+  */
+void HAL_ETH_RxLinkCallback(void ** pStart, void ** pEnd, uint8_t * buff, uint16_t Length)
+{
+  ETH_BufferTypeDef ** ppStart = (ETH_BufferTypeDef ** ) pStart;
+  ETH_BufferTypeDef ** ppEnd = (ETH_BufferTypeDef ** ) pEnd;
+  ETH_BufferTypeDef * p = NULL;
+  p = (ETH_BufferTypeDef * )(buff - offsetof(ETH_AppBuff, buffer));
+  p -> next = NULL;
+  p -> len = 100;
+  if (! * ppStart)
+  {
+    * ppStart = p;
+  } else
+  {
+    ( * ppEnd) -> next = p;
+  }
+  * ppEnd = p;
+}
+
+/*************ETHERNET_CALBACK_OVERLOAD_END**********************/
 
 /*************CALBACK_OVERLOAD_STOP**********************/
 
