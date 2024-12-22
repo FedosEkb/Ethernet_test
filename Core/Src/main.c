@@ -31,6 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEGUG_MESSAGE_ON
+
 #ifdef __GNUC__
 #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
 #else
@@ -44,6 +46,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim6;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -54,6 +58,7 @@ UART_HandleTypeDef huart1;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -104,9 +109,12 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   printf("Program started!\n\r");
   fflush(0);
+//  HAL_TIM_Base_Start_IT(&htim6);
+  HAL_TIM_OnePulse_Start_IT(&htim6, TIM_CHANNEL_ALL);
 
   /* USER CODE END 2 */
 
@@ -168,6 +176,50 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 65535;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 500;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OnePulse_Init(&htim6, TIM_OPMODE_SINGLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -195,7 +247,6 @@ static void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
-
   /* USER CODE END USART1_Init 2 */
 
 }
@@ -238,20 +289,46 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  if (GPIO_Pin == GPIO_PIN_0)
-  {
-	  	HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
-	  	printf("Button was been pushed!\n\r");
-	  	fflush(0);
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == GPIO_PIN_0) {
+		HAL_NVIC_DisableIRQ(EXTI0_IRQn);
+
+		// Clear interrupt bit in SR that was set as a side effect of generating an update event in TIM_Base_SetConfig
+		__HAL_TIM_CLEAR_IT(&htim6, TIM_IT_UPDATE);
+		// enable timer update interrupt
+		__HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
+		__HAL_TIM_ENABLE(&htim6);
+
+		HAL_GPIO_TogglePin(GPIOD,
+				GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
+#ifdef DEGUG_MESSAGE_ON
+		printf("Button was been pushed!\n\r");
+		fflush(0);
+#endif /*DEGUG_MESSAGE_ON*/
 //      HAL_ETH_Transmit_IT(&heth, &TxConfig);
 //      HAL_ETH_ReleaseTxPacket(&heth);
 
-  } else {
-      __NOP();
-  }
+	} else {
+		__NOP();
+	}
 }
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim6) // check source
+		{
+		__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_0); // NOTE отчистим предыдущие значение если оно там было
+		HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+#ifdef DEGUG_MESSAGE_ON
+		printf("Timer interrupt was accrued !\n\r");
+		fflush(0);
+#endif /*DEGUG_MESSAGE_ON*/
+
+	} else {
+		__NOP();
+	}
+
+}
+
+
 
 
 /* USER CODE END 4 */
