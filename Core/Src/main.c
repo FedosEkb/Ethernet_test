@@ -250,6 +250,12 @@ static void MX_ETH_Init(void)
   TxConfig.ChecksumCtrl = ETH_CHECKSUM_IPHDR_PAYLOAD_INSERT_PHDR_CALC;
   TxConfig.CRCPadCtrl = ETH_CRC_PAD_INSERT;
   /* USER CODE BEGIN ETH_Init 2 */
+	/* Set PHY IO functions */
+	LAN8742_RegisterBusIO(&LAN8742, &LAN8742_IOCtx);
+	/* Initialize the LAN8742 ETH PHY */
+	LAN8742_Init(&LAN8742);
+	/* Initialize link speed negotiation and start Ethernet peripheral */
+	ETH_StartLink();
 
   /* USER CODE END ETH_Init 2 */
 
@@ -453,7 +459,6 @@ void ETH_StartLink() {
 /*************PHY_INIT_STOP**********************/
 
 
-
 /*************CALBACK_OVERLOAD_START**********************/
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
@@ -537,6 +542,30 @@ void HAL_ETH_RxLinkCallback(void ** pStart, void ** pEnd, uint8_t * buff, uint16
     ( * ppEnd) -> next = p;
   }
   * ppEnd = p;
+}
+
+/**
+  * @brief  Tx Transfer completed callbacks.
+  * @param  heth: pointer to a ETH_HandleTypeDef structure that contains
+  *         the configuration information for ETHERNET module
+  * @retval None
+  */
+void HAL_ETH_TxCpltCallback(ETH_HandleTypeDef * heth)
+{
+  printf("Packet Transmitted successfully!\r\n");
+  fflush(0);
+}
+
+/**
+  * @brief  Rx Transfer completed callbacks.
+  * @param  heth: pointer to a ETH_HandleTypeDef structure that contains
+  *         the configuration information for ETHERNET module
+  * @retval None
+  */
+void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef * heth)
+{
+  printf("Packet Received successfully!\r\n");
+  fflush(0);
 }
 
 /*************ETHERNET_CALBACK_OVERLOAD_END**********************/
