@@ -27,7 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define BUFF_LEN 0x600
+#define BUFF_LEN 100
 typedef struct {
     ETH_BufferTypeDef *AppBuff;
     uint8_t buffer[BUFF_LEN]__ALIGNED(32);
@@ -36,7 +36,7 @@ typedef struct {
     uint8_t dest_mac[6];
     uint8_t src_mac[6];
     uint8_t type[2];
-    uint8_t payload[100];
+    uint8_t payload[BUFF_LEN];
 } ethernet_frame_t;
 
 /* USER CODE END PTD */
@@ -103,6 +103,8 @@ lan8742_IOCtx_t  LAN8742_IOCtx = {ETH_PHY_INTERFACE_Init,
                                   ETH_PHY_INTERFACE_WriteReg,
                                   ETH_PHY_INTERFACE_ReadReg,
                                   ETH_PHY_INTERFACE_GetTick};
+static int inc = 0; // NOTE для счетчика принятых/отправленных кадров
+ETH_BufferTypeDef *frame_Rx=NULL;
 
 /**
   * @brief Overload callback for
@@ -449,9 +451,12 @@ int32_t ETH_PHY_INTERFACE_GetTick(void)
 void ETH_StartLink() {
 	ETH_MACConfigTypeDef MACConf = { 0 };
 	int32_t PHYLinkState = LAN8742_GetLinkState(&LAN8742);
-	if (PHYLinkState <= LAN8742_STATUS_LINK_DOWN) {
+	if (PHYLinkState <= LAN8742_STATUS_LINK_DOWN)
+	{
 		HAL_ETH_Stop(&heth);
-	} else if (PHYLinkState > LAN8742_STATUS_LINK_DOWN) {
+	}
+	else if (PHYLinkState > LAN8742_STATUS_LINK_DOWN)
+	{
 		uint32_t linkchanged = 0U;
 		uint32_t speed = 0U;
 		uint32_t duplex = 0U;
@@ -484,7 +489,9 @@ void ETH_StartLink() {
 			MACConf.DuplexMode = duplex;
 			MACConf.Speed = speed;
 			MACConf.DropTCPIPChecksumErrorPacket = DISABLE;
+			MACConf.ForwardRxErrorPacket = ENABLE;   //FEP Bit
 			MACConf.ForwardRxUndersizedGoodPacket = ENABLE;
+			MACConf.LoopbackMode= DISABLE;
 			HAL_ETH_SetMACConfig(&heth, &MACConf);
 			HAL_ETH_Start_IT(&heth);
 		}
@@ -508,7 +515,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	    HAL_ETH_Transmit_IT( & heth, & TxConfig);
 	    HAL_ETH_ReleaseTxPacket( & heth);
-//	    HAL_ETH_ReadData( & heth, (void ** ) & frame_Rx);
+	    HAL_ETH_ReadData( & heth, (void ** ) & frame_Rx);
 
 		HAL_GPIO_TogglePin(GPIOD,
 				GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
@@ -572,7 +579,7 @@ void HAL_ETH_RxLinkCallback(void ** pStart, void ** pEnd, uint8_t * buff, uint16
   ETH_BufferTypeDef * p = NULL;
   p = (ETH_BufferTypeDef * )(buff - offsetof(ETH_AppBuff, buffer));
   p -> next = NULL;
-  p -> len = 100;
+  p -> len = BUFF_LEN;
   if (! * ppStart)
   {
     * ppStart = p;
