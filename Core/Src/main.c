@@ -32,6 +32,12 @@ typedef struct {
     ETH_BufferTypeDef *AppBuff;
     uint8_t buffer[BUFF_LEN]__ALIGNED(32);
 } ETH_AppBuff;
+typedef struct {
+    uint8_t dest_mac[6];
+    uint8_t src_mac[6];
+    uint8_t type[2];
+    uint8_t payload[100];
+} ethernet_frame_t;
 
 /* USER CODE END PTD */
 
@@ -83,6 +89,8 @@ int32_t ETH_PHY_INTERFACE_WriteReg(uint32_t DevAddr, uint32_t RegAddr,
 		uint32_t RegVal);
 int32_t ETH_PHY_INTERFACE_GetTick(void);
 void ETH_StartLink();
+void ETH_ConstructEthernetFrame(ethernet_frame_t *frame, uint8_t *dest_mac,
+		uint8_t *src_mac, uint8_t *type, uint8_t *payload, uint16_t payload_len);
 
 /* USER CODE END PFP */
 
@@ -117,6 +125,15 @@ int __io_putchar(int ch)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	ETH_BufferTypeDef TxBuffer;
+	ethernet_frame_t frame;
+	uint8_t dest_mac[] = { 0x00, 0x80, 0xE1, 0x00, 0x00, 0x10 }; // Destination MAC Address
+	uint8_t src_mac[] = { 0x00, 0x80, 0xE1, 0x00, 0x00, 0x00 }; // Source MAC Address
+	uint8_t type[] = { 0x08, 0x00 }; // EtherType set to IPV4 packet
+	uint8_t payload[] = { 0x54, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x20, 0x45,
+			0x74, 0x68, 0x65, 0x72, 0x6e, 0x65, 0x74, 0x20, 0x6f, 0x6e, 0x20,
+			0x53, 0x54, 0x4d, 0x33, 0x32 };
+	uint16_t payload_len = sizeof(payload);
 
   /* USER CODE END 1 */
 
@@ -146,6 +163,12 @@ int main(void)
   fflush(0);
 //  HAL_TIM_Base_Start_IT(&htim6);
   HAL_TIM_OnePulse_Start_IT(&htim6, TIM_CHANNEL_ALL);
+
+  ETH_ConstructEthernetFrame(&frame, dest_mac, src_mac, type, payload, payload_len);
+  TxBuffer.buffer = (uint8_t *)&frame;
+  TxBuffer.len = sizeof(dest_mac) + sizeof(src_mac) + sizeof(type) + payload_len;
+  TxBuffer.next = NULL;
+  TxConfig.TxBuffer = &TxBuffer;
 
   /* USER CODE END 2 */
 
@@ -377,6 +400,18 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void ETH_ConstructEthernetFrame(ethernet_frame_t * frame, uint8_t * dest_mac, uint8_t * src_mac, uint8_t * type, uint8_t * payload, uint16_t payload_len)
+{
+  // Copy the destination MAC address
+  memcpy(frame -> dest_mac, dest_mac, 6);
+  // Copy the source MAC address
+  memcpy(frame -> src_mac, src_mac, 6);
+  // Set the Ethernet type field
+  memcpy(frame -> type, type, 2);
+  // Copy the payload data
+  memcpy(frame -> payload, payload, payload_len);
+}
+
 /*************PHY_INIT_START**********************/
 
 int32_t ETH_PHY_INTERFACE_Init(void)
@@ -470,6 +505,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		// enable timer update interrupt
 		__HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
 		__HAL_TIM_ENABLE(&htim6);
+
+	    HAL_ETH_Transmit_IT( & heth, & TxConfig);
+	    HAL_ETH_ReleaseTxPacket( & heth);
+//	    HAL_ETH_ReadData( & heth, (void ** ) & frame_Rx);
 
 		HAL_GPIO_TogglePin(GPIOD,
 				GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
