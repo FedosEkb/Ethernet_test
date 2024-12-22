@@ -69,11 +69,26 @@ static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_ETH_Init(void);
 /* USER CODE BEGIN PFP */
+int32_t ETH_PHY_INTERFACE_Init(void);
+int32_t ETH_PHY_INTERFACE_DeInit(void);
+int32_t ETH_PHY_INTERFACE_ReadReg(uint32_t DevAddr, uint32_t RegAddr,
+		uint32_t *pRegVal);
+int32_t ETH_PHY_INTERFACE_WriteReg(uint32_t DevAddr, uint32_t RegAddr,
+		uint32_t RegVal);
+int32_t ETH_PHY_INTERFACE_GetTick(void);
+void ETH_StartLink();
 
 /* USER CODE END PFP */
 
+
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+lan8742_Object_t LAN8742;
+lan8742_IOCtx_t  LAN8742_IOCtx = {ETH_PHY_INTERFACE_Init,
+                                  ETH_PHY_INTERFACE_DeInit,
+                                  ETH_PHY_INTERFACE_WriteReg,
+                                  ETH_PHY_INTERFACE_ReadReg,
+                                  ETH_PHY_INTERFACE_GetTick};
 
 /**
   * @brief Overload callback for
@@ -349,6 +364,92 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/*************PHY_INIT_START**********************/
+
+int32_t ETH_PHY_INTERFACE_Init(void)
+{
+  /* Configure the MDIO Clock */
+  HAL_ETH_SetMDIOClockRange(&heth);
+  return 0;
+}
+int32_t ETH_PHY_INTERFACE_DeInit (void)
+{
+  return 0;
+}
+int32_t ETH_PHY_INTERFACE_ReadReg(uint32_t DevAddr, uint32_t RegAddr, uint32_t *pRegVal)
+{
+  if(HAL_ETH_ReadPHYRegister(&heth, DevAddr, RegAddr, pRegVal) != HAL_OK)
+  {
+    return -1;
+  }
+  return 0;
+}
+int32_t ETH_PHY_INTERFACE_WriteReg(uint32_t DevAddr, uint32_t RegAddr, uint32_t RegVal)
+{
+  if(HAL_ETH_WritePHYRegister(&heth, DevAddr, RegAddr, RegVal) != HAL_OK)
+  {
+    return -1;
+  }
+  return 0;
+}
+int32_t ETH_PHY_INTERFACE_GetTick(void)
+{
+  return HAL_GetTick();
+}
+
+
+void ETH_StartLink() {
+	ETH_MACConfigTypeDef MACConf = { 0 };
+	int32_t PHYLinkState = LAN8742_GetLinkState(&LAN8742);
+	if (PHYLinkState <= LAN8742_STATUS_LINK_DOWN) {
+		HAL_ETH_Stop(&heth);
+	} else if (PHYLinkState > LAN8742_STATUS_LINK_DOWN) {
+		uint32_t linkchanged = 0U;
+		uint32_t speed = 0U;
+		uint32_t duplex = 0U;
+		switch (PHYLinkState) {
+		case LAN8742_STATUS_100MBITS_FULLDUPLEX:
+			duplex = ETH_FULLDUPLEX_MODE;
+			speed = ETH_SPEED_100M;
+			linkchanged = 1;
+			break;
+		case LAN8742_STATUS_100MBITS_HALFDUPLEX:
+			duplex = ETH_HALFDUPLEX_MODE;
+			speed = ETH_SPEED_100M;
+			linkchanged = 1;
+			break;
+		case LAN8742_STATUS_10MBITS_FULLDUPLEX:
+			duplex = ETH_FULLDUPLEX_MODE;
+			speed = ETH_SPEED_10M;
+			linkchanged = 1;
+			break;
+		case LAN8742_STATUS_10MBITS_HALFDUPLEX:
+			duplex = ETH_HALFDUPLEX_MODE;
+			speed = ETH_SPEED_10M;
+			linkchanged = 1;
+			break;
+		default:
+			break;
+		}
+		if (linkchanged) {
+			HAL_ETH_GetMACConfig(&heth, &MACConf);
+			MACConf.DuplexMode = duplex;
+			MACConf.Speed = speed;
+			MACConf.DropTCPIPChecksumErrorPacket = DISABLE;
+			MACConf.ForwardRxUndersizedGoodPacket = ENABLE;
+			HAL_ETH_SetMACConfig(&heth, &MACConf);
+			HAL_ETH_Start_IT(&heth);
+		}
+	}
+}
+
+/*************PHY_INIT_STOP**********************/
+
+
+
+/*************CALBACK_OVERLOAD_START**********************/
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == GPIO_PIN_0) {
 		HAL_NVIC_DisableIRQ(EXTI0_IRQn);
@@ -385,10 +486,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	} else {
 		__NOP();
 	}
-
 }
 
-
+/*************CALBACK_OVERLOAD_STOP**********************/
 
 
 /* USER CODE END 4 */
