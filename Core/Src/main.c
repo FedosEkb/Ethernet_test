@@ -515,7 +515,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	    HAL_ETH_Transmit_IT( & heth, & TxConfig);
 	    HAL_ETH_ReleaseTxPacket( & heth);
-	    HAL_ETH_ReadData( & heth, (void ** ) & frame_Rx);
 
 		HAL_GPIO_TogglePin(GPIOD,
 				GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
@@ -611,6 +610,11 @@ void HAL_ETH_TxCpltCallback(ETH_HandleTypeDef * heth)
 void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef * heth)
 {
   printf("Packet Received successfully!\r\n");
+  if( HAL_ETH_ReadData(heth, (void ** ) & frame_Rx) != HAL_OK)
+  {
+	  HAL_ETH_GetError(heth);
+	  HAL_ETH_GetDMAError(heth);
+  }
   fflush(0);
 }
 
