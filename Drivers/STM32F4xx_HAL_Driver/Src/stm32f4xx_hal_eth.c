@@ -1180,11 +1180,11 @@ static void ETH_UpdateDescriptor(ETH_HandleTypeDef *heth)
 
       if (heth->RxDescList.ItMode == 0U)
       {
-        WRITE_REG(dmarxdesc->DESC1, ETH_DMARXDESC_DIC | 1000U | ETH_DMARXDESC_RCH);
+        WRITE_REG(dmarxdesc->DESC1, ETH_DMARXDESC_DIC | /*1000U*/ 0x600U | ETH_DMARXDESC_RCH);
       }
       else
       {
-        WRITE_REG(dmarxdesc->DESC1, 1000U | ETH_DMARXDESC_RCH);
+        WRITE_REG(dmarxdesc->DESC1, /*1000U*/ 0x600U | ETH_DMARXDESC_RCH);
       }
 
       /* Increment current rx descriptor index */

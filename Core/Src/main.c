@@ -27,9 +27,9 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define BUFF_LEN 100
+#define BUFF_LEN 0x600
 typedef struct {
-    ETH_BufferTypeDef *AppBuff;
+    int32_t frame_len;
     uint8_t buffer[BUFF_LEN]__ALIGNED(32);
 } ETH_AppBuff;
 typedef struct {
@@ -103,7 +103,7 @@ lan8742_IOCtx_t  LAN8742_IOCtx = {ETH_PHY_INTERFACE_Init,
                                   ETH_PHY_INTERFACE_WriteReg,
                                   ETH_PHY_INTERFACE_ReadReg,
                                   ETH_PHY_INTERFACE_GetTick};
-static int inc = 0; // NOTE для счетчика принятых/отправленных кадров
+//static int inc = 0; // NOTE для счетчика принятых/отправленных кадров
 ETH_BufferTypeDef *frame_Rx=NULL;
 
 /**
@@ -262,6 +262,7 @@ static void MX_ETH_Init(void)
   heth.Init.RxBuffLen = 1524;
 
   /* USER CODE BEGIN MACADDRESS */
+  heth.Init.RxBuffLen = 0x600; // TODO переопределить в коде так как такая длинна буфера захардкожена в HAL'e
 
   /* USER CODE END MACADDRESS */
 
@@ -552,7 +553,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   * @retval None
   */
 void HAL_ETH_RxAllocateCallback(uint8_t ** buff) {
-  ETH_BufferTypeDef * p = malloc(BUFF_LEN * sizeof(uint8_t));
+//#define RxAllocateCallback_OLD
+#ifdef RxAllocateCallback_OLD
+  ETH_BufferTypeDef * p = malloc(BUFF_LEN * sizeof(uint8_t) + sizeof(uint8_t));
   if (p)
   {
     * buff = (uint8_t * ) p + offsetof(ETH_AppBuff, buffer);
@@ -561,6 +564,18 @@ void HAL_ETH_RxAllocateCallback(uint8_t ** buff) {
   } else {
     * buff = NULL;
   }
+#else
+	ETH_AppBuff *p = malloc(sizeof(ETH_AppBuff));
+	if (p)
+	{
+		*buff = p->buffer;
+		p->frame_len = BUFF_LEN;
+	}
+	else
+	{
+		*buff = NULL;
+	}
+#endif /*RxAllocateCallback_OLD*/
 }
 
 /**
@@ -573,6 +588,9 @@ void HAL_ETH_RxAllocateCallback(uint8_t ** buff) {
   */
 void HAL_ETH_RxLinkCallback(void ** pStart, void ** pEnd, uint8_t * buff, uint16_t Length)
 {
+//#define RxAllocateCallback_OLD
+//#define RxLinkCallback_OLD
+#ifdef RxLinkCallback_OLD
   ETH_BufferTypeDef ** ppStart = (ETH_BufferTypeDef ** ) pStart;
   ETH_BufferTypeDef ** ppEnd = (ETH_BufferTypeDef ** ) pEnd;
   ETH_BufferTypeDef * p = NULL;
@@ -587,6 +605,12 @@ void HAL_ETH_RxLinkCallback(void ** pStart, void ** pEnd, uint8_t * buff, uint16
     ( * ppEnd) -> next = p;
   }
   * ppEnd = p;
+#else // NOTE исходим из того что кадр будет всегда помещатся в буфер !!
+  ETH_AppBuff ** ppStart = (ETH_AppBuff ** ) pStart;
+  UNUSED(pEnd);
+  *ppStart = (ETH_AppBuff *)(buff - offsetof(ETH_AppBuff, buffer));
+  (*ppStart)->frame_len = Length;
+#endif /*RxLinkCallback_OLD*/
 }
 
 /**
