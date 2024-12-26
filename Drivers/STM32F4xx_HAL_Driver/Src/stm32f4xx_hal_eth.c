@@ -1094,7 +1094,7 @@ HAL_StatusTypeDef HAL_ETH_ReadData(ETH_HandleTypeDef *heth, void **pAppBuff)
       heth->RxDescList.RxDataLength += bufflength;
 
       /* Clear buffer pointer */
-      dmarxdesc->BackupAddr0 = 0;
+//    dmarxdesc->BackupAddr0 = 0;  // !!  WARNING !!! строка закоментированна, если тут будет 0 ETH_UpdateDescriptor запросит новый буфер для дескриптора!
     }
 
     /* Increment current rx descriptor index */

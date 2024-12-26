@@ -105,6 +105,8 @@ lan8742_IOCtx_t  LAN8742_IOCtx = {ETH_PHY_INTERFACE_Init,
                                   ETH_PHY_INTERFACE_GetTick};
 //static int inc = 0; // NOTE для счетчика принятых/отправленных кадров
 ETH_BufferTypeDef *frame_Rx=NULL;
+ETH_AppBuff *buff_Rx=NULL;
+uint8_t resive_status = 0;
 
 /**
   * @brief Overload callback for
@@ -178,8 +180,15 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if (resive_status != 0){
+		  resive_status  = 0;
+
+		  printf("Len of frame %li, adress is %lx !\n\r", buff_Rx->frame_len, (uint32_t)buff_Rx->buffer);
+	  }
 
     /* USER CODE END WHILE */
+
+
 
     /* USER CODE BEGIN 3 */
   }
@@ -634,12 +643,16 @@ void HAL_ETH_TxCpltCallback(ETH_HandleTypeDef * heth)
 void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef * heth)
 {
   printf("Packet Received successfully!\r\n");
-  if( HAL_ETH_ReadData(heth, (void ** ) & frame_Rx) != HAL_OK)
+  fflush(0);
+  if( HAL_ETH_ReadData(heth, (void ** ) & buff_Rx) != HAL_OK)
   {
 	  HAL_ETH_GetError(heth);
 	  HAL_ETH_GetDMAError(heth);
   }
-  fflush(0);
+  else
+  {
+	  resive_status = 1;
+  }
 }
 
 /*************ETHERNET_CALBACK_OVERLOAD_END**********************/
